@@ -48,14 +48,100 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) || ''
 function detectStandaloneMode(): boolean {
   if (typeof window === 'undefined') return false;
   const params = new URLSearchParams(window.location.search);
+  const path = window.location.pathname.replace(/\/+$/, '');
   return (
-    window.location.pathname === '/ann' ||
-    params.get('mode') === 'standalone'
+    path === '/ann' ||
+    path === '/chat' ||
+    params.get('mode') === 'standalone' ||
+    params.get('chat') === 'only'
+  );
+}
+
+function MessageContent({ text }: { text: string }) {
+  const lines = text.split('\n');
+  const blocks: Array<
+    | { type: 'text'; lines: string[] }
+    | { type: 'table'; headers: string[]; rows: string[][] }
+  > = [];
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    const next = lines[i + 1]?.trim() ?? '';
+    if (
+      line.startsWith('|') &&
+      line.endsWith('|') &&
+      /^\|[\s:|-]+\|$/.test(next)
+    ) {
+      const parseRow = (rowLine: string) =>
+        rowLine
+          .slice(1, -1)
+          .split('|')
+          .map((c) => c.trim());
+      const headers = parseRow(line);
+      i += 2;
+      const rows: string[][] = [];
+      while (i < lines.length && lines[i].trim().startsWith('|') && lines[i].trim().endsWith('|')) {
+        rows.push(parseRow(lines[i].trim()));
+        i += 1;
+      }
+      blocks.push({ type: 'table', headers, rows });
+    } else {
+      const last = blocks[blocks.length - 1];
+      if (last && last.type === 'text') {
+        last.lines.push(lines[i]);
+      } else {
+        blocks.push({ type: 'text', lines: [lines[i]] });
+      }
+      i += 1;
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, bIdx) => {
+        if (block.type === 'text') {
+          const content = block.lines.join('\n').trim();
+          if (!content) return null;
+          return (
+            <div key={bIdx} className="whitespace-pre-wrap leading-relaxed">
+              {content}
+            </div>
+          );
+        }
+        return (
+          <div key={bIdx} className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+            <table className="w-full text-xs text-right border-collapse">
+              <thead className="bg-slate-100 text-slate-800">
+                <tr>
+                  {block.headers.map((h, hIdx) => (
+                    <th key={hIdx} className="px-2.5 py-2 font-semibold border-b border-slate-200">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {block.rows.map((row, rIdx) => (
+                  <tr key={rIdx} className="border-b last:border-b-0 border-slate-100">
+                    {row.map((cell, cIdx) => (
+                      <td key={cIdx} className="px-2.5 py-1.5 text-slate-800">
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
 export default function App() {
-  const [isStandalone, setIsStandalone] = useState<boolean>(detectStandaloneMode);
+  const [isStandalone] = useState<boolean>(detectStandaloneMode);
   const [activeTab, setActiveTab] = useState<ActiveTab>('chat');
   const [blueprintSection, setBlueprintSection] =
     useState<BlueprintSection>('instructions');
@@ -305,12 +391,12 @@ export default function App() {
       ? `${window.location.origin}/ann`
       : '/ann';
 
-  // Clean Standalone View (for separated site / Canva external link)
+  // Clean Standalone View (Chat-only page without any developer/extra UI)
   if (isStandalone) {
     return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center p-3 sm:p-6">
-        <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col h-[88vh]">
-          <header className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col items-center justify-center p-2 sm:p-4">
+        <div className="w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col h-[92vh]">
+          <header className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between">
             <div>
               <h1 className="font-bold text-base text-slate-900">
                 {BLUEPRINT.identity.displayName}
@@ -329,7 +415,7 @@ export default function App() {
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3">
             {messages.map((msg, idx) => (
               <div
                 key={idx}
@@ -338,19 +424,29 @@ export default function App() {
                 }`}
               >
                 <div
-                  className={`max-w-[88%] rounded-xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[90%] rounded-xl px-4 py-3 text-sm ${
                     msg.role === 'user'
-                      ? 'bg-slate-900 text-white'
+                      ? 'bg-slate-900 text-white whitespace-pre-wrap leading-relaxed'
                       : 'bg-slate-100 text-slate-900 border border-slate-200'
                   }`}
                 >
-                  {msg.text || (isSending && idx === messages.length - 1 ? '...' : '')}
+                  {msg.text ? (
+                    msg.role === 'model' ? (
+                      <MessageContent text={msg.text} />
+                    ) : (
+                      msg.text
+                    )
+                  ) : isSending && idx === messages.length - 1 ? (
+                    '...'
+                  ) : (
+                    ''
+                  )}
                 </div>
               </div>
             ))}
 
             {!hasUserStarted && (
-              <div className="pt-2">
+              <div className="pt-1">
                 <div className="flex flex-wrap gap-2">
                   {CONVERSATION_STARTERS.map((starter) => (
                     <button
@@ -522,14 +618,15 @@ export default function App() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsStandalone(true)}
+                  <a
+                    href="/ann"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>معاينة الصفحة المستقلة</span>
-                  </button>
+                    <span>فتح رابط الشات المنفصل</span>
+                  </a>
                   <button
                     type="button"
                     onClick={resetConversation}
@@ -1149,14 +1246,15 @@ export default function App() {
                   بدون تبويبات الفحص والبرمجة.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsStandalone(true)}
+                  <a
+                    href="/ann"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-900 text-white text-xs font-medium hover:bg-slate-800"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>معاينة وضع /ann الآن</span>
-                  </button>
+                    <span>فتح الشات المنفصل (/ann)</span>
+                  </a>
                   <button
                     type="button"
                     onClick={() => copyText('standalone-url', standaloneUrl)}
@@ -1165,8 +1263,8 @@ export default function App() {
                     <ClipboardCopy className="w-3.5 h-3.5" />
                     <span>
                       {copiedId === 'standalone-url'
-                        ? 'تم نسخ المسار'
-                        : 'نسخ رابط /ann الحالي'}
+                        ? 'تم نسخ الرابط'
+                        : 'نسخ رابط الشات المنفصل'}
                     </span>
                   </button>
                 </div>
