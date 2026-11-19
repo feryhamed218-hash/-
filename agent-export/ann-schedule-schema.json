@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AnnCircularClockSchedulePlan",
+  "description": "تنسيق JSON القياسي لمخرجات آن | Ann للربط المباشر مع منصة تنظيم الوقت والساعة الدائرية التفاعلية.",
+  "type": "object",
+  "required": [
+    "planTitle",
+    "dayStart",
+    "dayEnd",
+    "activities",
+    "topThreePriorities",
+    "restPeriods",
+    "flexibleTimeSummary",
+    "distributionRationale",
+    "postponableTasks",
+    "isRealistic"
+  ],
+  "properties": {
+    "planTitle": { "type": "string" },
+    "dayStart": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+    "dayEnd": { "type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$" },
+    "activities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "activityName",
+          "startTime",
+          "endTime",
+          "category",
+          "categoryLabelAr",
+          "priority",
+          "completionStatus"
+        ],
+        "properties": {
+          "activityName": { "type": "string", "description": "اسم النشاط" },
+          "startTime": { "type": "string", "description": "وقت البداية HH:mm" },
+          "endTime": { "type": "string", "description": "وقت النهاية HH:mm" },
+          "category": {
+            "type": "string",
+            "enum": [
+              "WORK_OR_STUDY",
+              "PHYSICAL_ACTIVITY",
+              "DAILY_TASKS",
+              "LEARNING_AND_GROWTH",
+              "FLEXIBLE_TIME",
+              "REST"
+            ]
+          },
+          "categoryLabelAr": {
+            "type": "string",
+            "enum": [
+              "العمل أو الدراسة",
+              "النشاط البدني",
+              "المهام اليومية",
+              "التعلم والإنجاز الإضافي",
+              "الوقت المرن",
+              "الراحة"
+            ]
+          },
+          "priority": { "type": "string", "enum": ["عالية", "متوسطة", "منخفضة"] },
+          "completionStatus": {
+            "type": "string",
+            "enum": ["PENDING", "IN_PROGRESS", "COMPLETED", "POSTPONED"]
+          },
+          "optionalNotes": { "type": "string" }
+        }
+      }
+    },
+    "topThreePriorities": { "type": "array", "items": { "type": "string" } },
+    "restPeriods": { "type": "array", "items": { "type": "string" } },
+    "flexibleTimeSummary": { "type": "string" },
+    "distributionRationale": { "type": "string" },
+    "postponableTasks": { "type": "array", "items": { "type": "string" } },
+    "conflictsOrWarnings": { "type": "array", "items": { "type": "string" } },
+    "isRealistic": { "type": "boolean" }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "آن | Ann — AI Time Management Agent",
+  "description": "وكيل ذكي متخصص في تنظيم الوقت وإدارة الحياة اليومية بمرونة وواقعية، جاهز للربط بمنصة تنظيم الوقت والساعة الدائرية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
